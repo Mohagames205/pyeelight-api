@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pyeelight',
-    version='0.0.2',
+    version='0.2.0',
     license='MIT',
     author="Mohamed El Yousfi",
     author_email='pip@mootje.be',

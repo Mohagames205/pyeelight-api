@@ -32,12 +32,21 @@ class AdvertisementSocket(pyeelight.Contextable):
     def __init__(self):
         self.packets = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-        hostname = socket.gethostname()
-        local_ip = socket.gethostbyname(hostname)
-
-        self.sock.bind((local_ip, 1234))
+        self.sock.bind((self.get_ip(), 1234))
         self.logger = pyeelight.Logger(self)
+
+    def get_ip(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0)
+        try:
+            # doesn't even have to be reachable
+            s.connect(('10.254.254.254', 1))
+            IP = s.getsockname()[0]
+        except Exception:
+            IP = '127.0.0.1'
+        finally:
+            s.close()
+        return IP
 
     def send_packet(self, packet: OutboundRequestPacket):
         self.sock.sendto(packet.process_headers(), (self.MULTICAST_IP, self.MULTICAST_PORT))
