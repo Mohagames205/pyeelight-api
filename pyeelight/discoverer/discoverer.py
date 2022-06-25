@@ -30,9 +30,11 @@ class AdvertisementSocket(pyeelight.Contextable):
     MULTICAST_PORT = 1982
 
     def __init__(self):
+        self.running = True
         self.packets = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((self.get_ip(), 1234))
+        self.sock.settimeout(4)
         self.logger = pyeelight.Logger(self)
 
     def get_ip(self):
@@ -64,43 +66,49 @@ class AdvertisementSocket(pyeelight.Contextable):
         x.join(3)
         e.set()
 
+        self.running = False
+
         #self.ditch()
         return self.packets
 
     def wait_on_response(self):
-        while True:
-            data, addr = self.sock.recvfrom(1024)  # buffer size is 1024 bytes
-            decoded_data = data.decode().rstrip()
-            packet = InboundAdvertisementPacket()
+        while self.running:
+            try:
+                data, addr = self.sock.recvfrom(1024)  # buffer size is 1024 bytes
+                decoded_data = data.decode().rstrip()
+                packet = InboundAdvertisementPacket()
 
-            i = 0
-            packet_dict = {}
-            for element in decoded_data.split("\r\n"):
-                if i == 0:
-                    packet.http = element
-                else:
-                    key, value = element.split(":", 1)
-                    packet_dict[key] = value.lstrip()
-                i += 1
+                i = 0
+                packet_dict = {}
+                for element in decoded_data.split("\r\n"):
+                    if i == 0:
+                        packet.http = element
+                    else:
+                        key, value = element.split(":", 1)
+                        packet_dict[key] = value.lstrip()
+                    i += 1
 
-            packet.cache_control = packet_dict["Cache-Control"]
-            packet.location = packet_dict["Location"]
-            packet.data = packet_dict["Date"]
-            packet.ext = packet_dict["Ext"]
-            packet.id = packet_dict["id"]
-            packet.model = packet_dict["model"]
-            packet.fw_ver = packet_dict["fw_ver"]
-            packet.supported_methods = packet_dict["support"].split(" ")
-            packet.power = packet_dict["power"]
-            packet.brightness = packet_dict["bright"]
-            packet.color_mode = packet_dict["color_mode"]
-            packet.ct = packet_dict["ct"]
-            packet.rgb = packet_dict["rgb"]
-            packet.hue = packet_dict["hue"]
-            packet.sat = packet_dict["sat"]
-            packet.name = packet_dict["name"]
+                packet.cache_control = packet_dict["Cache-Control"]
+                packet.location = packet_dict["Location"]
+                packet.data = packet_dict["Date"]
+                packet.ext = packet_dict["Ext"]
+                packet.id = packet_dict["id"]
+                packet.model = packet_dict["model"]
+                packet.fw_ver = packet_dict["fw_ver"]
+                packet.supported_methods = packet_dict["support"].split(" ")
+                packet.power = packet_dict["power"]
+                packet.brightness = packet_dict["bright"]
+                packet.color_mode = packet_dict["color_mode"]
+                packet.ct = packet_dict["ct"]
+                packet.rgb = packet_dict["rgb"]
+                packet.hue = packet_dict["hue"]
+                packet.sat = packet_dict["sat"]
+                packet.name = packet_dict["name"]
 
-            self.packets.append(packet)
+                self.packets.append(packet)
+
+            except socket.timeout:
+                pass
 
     def get_context(self):
         return f"DISCOVERER::MULTICAST"
@@ -112,9 +120,11 @@ class BulbInfo:
     def __init__(self, name, location):
         self.name = name
         self.location = location
+        prefixed_address = ":".join(self.location.split(":", 2)[:2])
+        self.ip = prefixed_address.split("//")[1]
 
     def get_ip(self):
-        pass
+        return self.ip
 
     def get_port(self):
         pass
@@ -123,10 +133,7 @@ class BulbInfo:
         return self.name
 
     def get_controller(self) -> pyeelight.Bulb:
-        prefixed_address = ":".join(self.location.split(":", 2)[:2])
-        ip_address = prefixed_address.split("//")[1]
-
-        return pyeelight.Bulb.connect(ip_address)
+        return pyeelight.Bulb.connect(self.get_ip())
 
 
 def get_bulbs():
