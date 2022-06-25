@@ -6,6 +6,12 @@ Do not use, this is very much indev
 
 This library facilitates the communication between the user and the yeelight protocol.
 
+## How to install?
+
+```py
+pip install pyeelight
+```
+
 ## Basic usage
 
 ```py
