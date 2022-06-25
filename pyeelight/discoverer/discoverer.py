@@ -1,5 +1,7 @@
 import socket
 import threading
+import time
+
 from objprint import add_objprint
 import pyeelight
 
@@ -15,7 +17,7 @@ class OutboundRequestPacket(Packet):
         self.st = st
 
     def process_headers(self):
-        return f"""M-SEARCH * HTTP/1.1\r\nMAN: "{self.man}"\r\nST: {self.st}""".encode()
+        return f"""M-SEARCH * HTTP/1.1\r\nMAN: "{self.man}"\r\nST: {self.st}\r\n""".encode()
 
 
 @add_objprint
@@ -30,11 +32,14 @@ class AdvertisementSocket(pyeelight.Contextable):
     def __init__(self):
         self.packets = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(("0.0.0.0", 1234))
+
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+
+        self.sock.bind((local_ip, 1234))
         self.logger = pyeelight.Logger(self)
 
     def send_packet(self, packet: OutboundRequestPacket):
-        print(packet.process_headers())
         self.sock.sendto(packet.process_headers(), (self.MULTICAST_IP, self.MULTICAST_PORT))
 
     def ditch(self):
@@ -55,11 +60,8 @@ class AdvertisementSocket(pyeelight.Contextable):
 
     def wait_on_response(self):
         while True:
-            print("jow")
             data, addr = self.sock.recvfrom(1024)  # buffer size is 1024 bytes
-            print(data)
             decoded_data = data.decode().rstrip()
-
             packet = InboundAdvertisementPacket()
 
             i = 0
