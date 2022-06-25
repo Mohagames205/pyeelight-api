@@ -1,11 +1,7 @@
-import datetime
-import re
 import socket
 import threading
 from objprint import add_objprint
-import time
-
-import main
+import pyeelight
 
 
 class Packet:
@@ -27,7 +23,7 @@ class InboundAdvertisementPacket(Packet):
     pass
 
 
-class AdvertisementSocket(main.Contextable):
+class AdvertisementSocket(pyeelight.Contextable):
     MULTICAST_IP = "239.255.255.250"
     MULTICAST_PORT = 1982
 
@@ -35,9 +31,10 @@ class AdvertisementSocket(main.Contextable):
         self.packets = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("0.0.0.0", 1234))
-        self.logger = main.Logger(self)
+        self.logger = pyeelight.Logger(self)
 
-    def send_packet(self, packet: OutboundRequestPacket) -> bool:
+    def send_packet(self, packet: OutboundRequestPacket):
+        print(packet.process_headers())
         self.sock.sendto(packet.process_headers(), (self.MULTICAST_IP, self.MULTICAST_PORT))
 
     def ditch(self):
@@ -46,8 +43,7 @@ class AdvertisementSocket(main.Contextable):
     def init_waiter_thread(self):
         self.logger.info("DISCOVERER", "Starting discovery of bulbs...")
         e = threading.Event()
-        x = threading.Thread(target=self.wait_on_response, args=(e, ))
-
+        x = threading.Thread(target=self.wait_on_response)
         x.start()
 
         # sync memory after running thread
@@ -57,12 +53,11 @@ class AdvertisementSocket(main.Contextable):
         #self.ditch()
         return self.packets
 
-    def wait_on_response(self, e):
-
-        running = True
-
-        while running:
+    def wait_on_response(self):
+        while True:
+            print("jow")
             data, addr = self.sock.recvfrom(1024)  # buffer size is 1024 bytes
+            print(data)
             decoded_data = data.decode().rstrip()
 
             packet = InboundAdvertisementPacket()
@@ -116,16 +111,15 @@ class BulbInfo:
     def get_name(self):
         return self.name
 
-    def get_controller(self) -> main.Bulb:
+    def get_controller(self) -> pyeelight.Bulb:
         prefixed_address = ":".join(self.location.split(":", 2)[:2])
         ip_address = prefixed_address.split("//")[1]
 
-        return main.Bulb.connect(ip_address)
+        return pyeelight.Bulb.connect(ip_address)
 
 
 def get_bulbs():
     ad_socket = AdvertisementSocket()
-
     ad_socket.send_packet(OutboundRequestPacket("ssdp:discover", "wifi_bulb"))
 
     return [BulbInfo(i.name, i.location) for i in ad_socket.init_waiter_thread()]
