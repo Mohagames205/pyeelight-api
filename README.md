@@ -1,5 +1,6 @@
 Do not use, this is very much indev
 
+[![PyPI version](https://badge.fury.io/py/pyeelight.svg)](https://badge.fury.io/py/pyeelight)
 
 # Yeelight Python API
 
